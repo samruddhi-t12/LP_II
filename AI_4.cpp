@@ -4,92 +4,135 @@
 
 using namespace std;
 
-class NQueensCSP {
+class NQueensSolver {
 private:
     int n;
-    int solutionsCount;
-    vector<bool> cols;
-    vector<bool> mainDiag; 
-    vector<bool> antiDiag; 
-    vector<string> board;
-    vector<vector<string>> allSolutions;
+    
+    // --- Variables for Standard Backtracking ---
+    vector<string> boardBT;
+    int solutionsCountBT;
 
-    void solve(int row) {
-        // Base Case: All queens are placed successfully
+    // --- Variables for Branch & Bound ---
+    vector<string> boardBnB;
+    int solutionsCountBnB;
+    vector<bool> cols;
+    vector<bool> mainDiag;
+    vector<bool> antiDiag;
+
+    // =========================================================
+    // METHOD 1: STANDARD BACKTRACKING (O(N) Safety Check)
+    // =========================================================
+    bool isSafeBT(int row, int col) {
+        // Check column above
+        for (int i = 0; i < row; i++)
+            if (boardBT[i][col] == 'Q') return false;
+
+        // Check upper left diagonal
+        for (int i = row, j = col; i >= 0 && j >= 0; i--, j--)
+            if (boardBT[i][j] == 'Q') return false;
+
+        // Check upper right diagonal
+        for (int i = row, j = col; i >= 0 && j < n; i--, j++)
+            if (boardBT[i][j] == 'Q') return false;
+
+        return true;
+    }
+
+    void solveBT(int row) {
         if (row == n) {
-            solutionsCount++;
-            // Save the very first solution found for visual proof
-            if (allSolutions.empty()) { 
-                allSolutions.push_back(board);
-            }
+            solutionsCountBT++;
+            printBoard(boardBT, "Standard Backtracking");
             return;
         }
 
-        for (int col = 0; col < n; ++col) {
+        for (int col = 0; col < n; col++) {
+            if (isSafeBT(row, col)) {
+                boardBT[row][col] = 'Q';     // Place Queen
+                solveBT(row + 1);            // Recurse
+                boardBT[row][col] = '.';     // Backtrack
+            }
+        }
+    }
+
+    // =========================================================
+    // METHOD 2: BRANCH & BOUND (O(1) Safety Check via Arrays)
+    // =========================================================
+    void solveBnB(int row) {
+        if (row == n) {
+            solutionsCountBnB++;
+            printBoard(boardBnB, "Branch & Bound");
+            return;
+        }
+
+        for (int col = 0; col < n; col++) {
             int mdIdx = row - col + n - 1;
             int adIdx = row + col;
 
-            // BRANCH AND BOUND: Prune invalid branches in O(1) time
-            if (cols[col] || mainDiag[mdIdx] || antiDiag[adIdx]) {
-                continue; 
-            }
+            // O(1) Pruning check
+            if (cols[col] || mainDiag[mdIdx] || antiDiag[adIdx]) continue;
 
-            // PLACE QUEEN (Update state and bounds)
-            board[row][col] = 'Q';
-            cols[col] = true;
-            mainDiag[mdIdx] = true;
+            // Place Queen and set bounds
+            boardBnB[row][col] = 'Q';
+            cols[col] = true; 
+            mainDiag[mdIdx] = true; 
             antiDiag[adIdx] = true;
 
-            // BRANCH (Move to the next row)
-            solve(row + 1);
+            solveBnB(row + 1); // Recurse
 
-            // BACKTRACK (Undo the move and release bounds)
-            board[row][col] = '.';
-            cols[col] = false;
-            mainDiag[mdIdx] = false;
+            // Backtrack and release bounds
+            boardBnB[row][col] = '.';
+            cols[col] = false; 
+            mainDiag[mdIdx] = false; 
             antiDiag[adIdx] = false;
         }
     }
 
+    // --- Utility: Print Board ---
+    void printBoard(const vector<string>& board, string method) {
+        cout << "Solution found using " << method << ":\n";
+        for (int i = 0; i < n; i++) {
+            cout << "  ";
+            for (int j = 0; j < n; j++) {
+                cout << board[i][j] << " ";
+            }
+            cout << "\n";
+        }
+        cout << "\n";
+    }
+
 public:
-    NQueensCSP(int size) {
+    NQueensSolver(int size) {
         n = size;
-        solutionsCount = 0;
+        
+        boardBT.assign(n, string(n, '.'));
+        solutionsCountBT = 0;
+
+        boardBnB.assign(n, string(n, '.'));
+        solutionsCountBnB = 0;
         cols.assign(n, false);
         mainDiag.assign(2 * n - 1, false);
         antiDiag.assign(2 * n - 1, false);
-        board.assign(n, string(n, '.'));
     }
 
-    void findSolutions() {
-        solve(0);
-        
-        cout << "\n--- [ N-QUEENS CSP RESULTS ] ---\n";
-        cout << "Board Size (N)   : " << n << " x " << n << "\n";
-        cout << "Total Solutions  : " << solutionsCount << "\n";
-        
-        if (solutionsCount > 0) {
-            cout << "\nVisual Proof (Solution 1):\n";
-            for (int i = 0; i < n; ++i) {
-                cout << "  ";
-                for (int j = 0; j < n; ++j) {
-                    cout << allSolutions[0][i][j] << " ";
-                }
-                cout << "\n";
-            }
-        } else {
-            cout << "\nNo geometrically possible solutions exist for N = " << n << ".\n";
-        }
-        cout << "--------------------------------\n";
+    void runStandardBacktracking() {
+        cout << "\n--- [ EXECUTING STANDARD BACKTRACKING ] ---\n";
+        solveBT(0);
+        cout << "Total solutions (Backtracking): " << solutionsCountBT << "\n";
+    }
+
+    void runBranchAndBound() {
+        cout << "\n--- [ EXECUTING BRANCH & BOUND ] ---\n";
+        solveBnB(0);
+        cout << "Total solutions (Branch & Bound): " << solutionsCountBnB << "\n";
     }
 };
 
 int main() {
     int n;
     cout << "===========================================\n";
-    cout << "   N-QUEENS (BRANCH & BOUND + BACKTRACK)   \n";
+    cout << "   N-QUEENS (BACKTRACKING vs BRANCH & BOUND)\n";
     cout << "===========================================\n";
-    cout << "Enter the board size (N): ";
+    cout << "Enter the board size (N) [Enter 4 for practical requirement]: ";
     cin >> n;
 
     if (n <= 0) {
@@ -97,8 +140,12 @@ int main() {
         return 0;
     }
 
-    NQueensCSP solver(n);
-    solver.findSolutions();
+    NQueensSolver solver(n);
+    
+    // Execute both methods to satisfy the problem statement fully
+    solver.runStandardBacktracking();
+    cout << "-------------------------------------------\n";
+    solver.runBranchAndBound();
 
     return 0;
 }
